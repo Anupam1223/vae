@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Settings2, Image as ImageIcon, Zap, Target, HelpCircle, Layers, ArrowRight, Activity, Search, AlertTriangle, Fingerprint, EyeOff, Scissors, RefreshCw, Wand2, GitMerge } from 'lucide-react';
-
+import { 
+  ChevronLeft, ChevronRight, Settings2, Image as ImageIcon, Zap, 
+  Target, HelpCircle, Layers, ArrowRight, Activity, Search, 
+  AlertTriangle, Fingerprint, EyeOff, Scissors, RefreshCw, 
+  Wand2, GitMerge, Loader, CheckCircle, XCircle 
+} from 'lucide-react';
 
 // --- SLIDE 1: The Core Concept & PGM ---
 const CoreConceptSlide = () => {
@@ -821,8 +825,208 @@ const VariationalInferenceSlide = () => {
   );
 };
 
+// --- SLIDE 6: The Cat Journey (Clarifying Your Model) ---
+const CatJourneySlide = () => {
+  const [step, setStep] = useState(0);
 
-// --- SLIDE 6: The Full VAE Picture ---
+  return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto bg-slate-50">
+      <h2 className="text-3xl font-bold text-blue-700 mb-2 text-center">Your Mental Model: The Journey of a Cat Image</h2>
+      <p className="text-slate-600 mb-6 text-center max-w-4xl mx-auto text-sm md:text-base">
+        Your understanding is incredibly close! Let's walk through your exact explanation step-by-step, map it to the VAE architecture, and clear up the specific loss functions.
+      </p>
+
+      {/* Stepper Navigation */}
+      <div className="flex justify-center mb-8 w-full max-w-4xl mx-auto">
+        <div className="flex w-full justify-between items-center relative">
+           <div className="absolute left-0 right-0 h-1 bg-slate-200 top-1/2 transform -translate-y-1/2 z-0"></div>
+           {['1. The Input', '2. The Encoder Loss', '3. The Decoder Loss', '4. Inference Phase'].map((label, i) => (
+             <button 
+               key={i}
+               onClick={() => setStep(i)}
+               className={`relative z-10 px-4 py-2 rounded-full font-bold text-xs md:text-sm transition-all border-2 ${step === i ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-110' : step > i ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-slate-400 border-slate-200'}`}
+             >
+               {label}
+             </button>
+           ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto w-full flex-grow items-stretch pb-10">
+        
+        {/* LEFT: User's Thought vs Reality */}
+        <div className="flex-1 flex flex-col gap-4">
+          <AnimatePresence mode="wait">
+            
+            {step === 0 && (
+              <motion.div key="step0" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-4 h-full">
+                <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-xl">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Your Words:</span>
+                  <p className="text-slate-700 font-medium italic mt-1">"we have a set of cat images... we send the data through the MLP (encoder) we get mean and variance..."</p>
+                </div>
+                <div className="bg-white border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm flex-grow">
+                  <span className="text-xs font-bold text-green-600 uppercase flex items-center gap-1"><CheckCircle className="w-4 h-4"/> Exactly Right!</span>
+                  <p className="text-slate-700 mt-2 text-sm">
+                    This is perfectly correct. The first MLP is the <strong>Encoder</strong>. It takes the highly complex cat pixels and squishes them down into parameters for a probability bubble (Mean μ and Variance σ²).
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 1 && (
+              <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-4 h-full">
+                <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-xl">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Your Words:</span>
+                  <p className="text-slate-700 font-medium italic mt-1">"...if they fall far away from the bell curve then we use negative log likelihood to calculate the loss, backpropagate..."</p>
+                </div>
+                <div className="bg-white border-l-4 border-yellow-500 p-4 rounded-r-xl shadow-sm flex-grow">
+                  <span className="text-xs font-bold text-yellow-600 uppercase flex items-center gap-1"><AlertTriangle className="w-4 h-4"/> Small Vocabulary Fix</span>
+                  <p className="text-slate-700 mt-2 text-sm leading-relaxed">
+                    You have the <em>concept</em> right, but the <em>name</em> wrong! The loss used to force the Encoder's bubble to match the standard bell curve is called <strong>KL Divergence</strong>. It acts like a rubber band pulling the Mean to 0 and the Variance to 1. <br/><br/>(NLL is used in the next step!)
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 2 && (
+              <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-4 h-full">
+                <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-xl">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Your Words:</span>
+                  <p className="text-slate-700 font-medium italic mt-1 text-sm">"the decoder take random pointers from the latent space... another MLP trained in such a way that has knowledge of the original data..."</p>
+                </div>
+                <div className="bg-white border-l-4 border-blue-500 p-4 rounded-r-xl shadow-sm flex-grow">
+                  <span className="text-xs font-bold text-blue-600 uppercase flex items-center gap-1"><Target className="w-4 h-4"/> How the Decoder Trains</span>
+                  <p className="text-slate-700 mt-2 text-sm leading-relaxed">
+                    Yes! And <em>how</em> does it gain that knowledge? It takes the sample <span className="font-mono text-purple-600">z</span> and tries to redraw the <strong>exact same original cat</strong>. <br/><br/>
+                    We compare the redrawn cat to the original cat. <strong>THIS is where we use Negative Log-Likelihood (NLL)!</strong> Both the Encoder and Decoder train at the exact same time using a combined loss: <br/>
+                    <span className="font-mono font-bold bg-slate-100 px-2 py-1 rounded block mt-2 text-center text-xs">Total Loss = (NLL Reconstruction) + (KL Divergence)</span>
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div key="step3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-4 h-full">
+                <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-xl">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Your Words:</span>
+                  <p className="text-slate-700 font-medium italic mt-1">"...so at the time of inference we forget about the encoder and just use the decoder? is this whats happening?"</p>
+                </div>
+                <div className="bg-white border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm flex-grow bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-green-50 to-white">
+                  <span className="text-xs font-bold text-green-600 uppercase flex items-center gap-1"><CheckCircle className="w-4 h-4"/> 100% NAILED IT!</span>
+                  <p className="text-slate-700 mt-2 text-sm">
+                    This is the magic of VAEs. Because the KL Divergence forced the latent space to perfectly mimic a standard Bell Curve during training, we can now throw the Encoder away entirely! <br/><br/>
+                    We just reach into our standard Bell Curve, pull out a random point <span className="font-mono text-purple-600">z</span>, hand it to the Decoder, and it hallucinates a brand new, realistic cat.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+
+        {/* RIGHT: The Visual Pipeline Map */}
+        <div className="flex-[1.5] bg-white rounded-2xl shadow-lg border border-slate-200 p-6 relative flex items-center justify-center min-h-[300px] overflow-hidden">
+           
+           {/* The VAE Pipeline Map */}
+           <div className="flex items-center gap-2 w-full justify-between relative z-10">
+              
+              {/* Input Cat */}
+              <div className={`flex flex-col items-center shrink-0 transition-opacity duration-500 ${step === 3 ? 'opacity-20 grayscale' : 'opacity-100'}`}>
+                <span className="text-[10px] font-bold text-green-700 mb-1 font-mono">x (Original)</span>
+                <div className="w-16 h-16 bg-slate-100 border-2 border-slate-300 rounded-lg overflow-hidden p-0.5 shadow-sm">
+                  <img src="https://picsum.photos/id/219/100/100" className="w-full h-full object-cover grayscale" />
+                </div>
+              </div>
+
+              <ArrowRight className={`w-5 h-5 shrink-0 transition-opacity duration-500 ${step === 3 ? 'opacity-20' : 'text-slate-300'}`} />
+
+              {/* Encoder */}
+              <div className={`flex flex-col items-center shrink-0 transition-opacity duration-500 ${step === 3 ? 'opacity-20 grayscale' : 'opacity-100'}`}>
+                <span className="text-[10px] font-bold text-teal-700 mb-1 uppercase">Encoder</span>
+                <div className={`w-20 h-16 bg-teal-600 rounded-xl shadow-md flex items-center justify-center border-2 border-teal-500 text-white font-bold font-mono text-xs ${step === 0 ? 'ring-4 ring-teal-300 ring-offset-2' : ''}`}>
+                  MLP 1
+                </div>
+              </div>
+
+              <ArrowRight className={`w-5 h-5 shrink-0 transition-opacity duration-500 ${step === 3 ? 'opacity-20' : 'text-slate-300'}`} />
+
+              {/* Latent Space Bottleneck */}
+              <div className="flex flex-col items-center shrink-0 relative bg-purple-50 p-2 rounded-xl border border-purple-200">
+                <span className="text-[9px] font-bold text-purple-800 mb-1 uppercase">Latent Space (z)</span>
+                
+                {/* Mode: Training vs Inference */}
+                {step < 3 ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className={`flex gap-1 ${step === 1 ? 'ring-4 ring-purple-300 ring-offset-2 rounded' : ''}`}>
+                      <div className="w-6 h-6 bg-blue-400 rounded-sm flex items-center justify-center text-white text-[8px] font-mono">μ</div>
+                      <div className="w-6 h-6 bg-red-400 rounded-sm flex items-center justify-center text-white text-[8px] font-mono">σ²</div>
+                    </div>
+                    {/* The KL Loss Connector */}
+                    {step === 1 && (
+                      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="absolute -top-14 bg-yellow-100 border border-yellow-400 p-1.5 rounded shadow-lg flex flex-col items-center z-20">
+                        <span className="text-[9px] font-bold text-yellow-800 text-center leading-tight">Match Bell Curve!<br/>(KL Divergence Loss)</span>
+                        <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-yellow-400 absolute -bottom-1.5"></div>
+                      </motion.div>
+                    )}
+                  </div>
+                ) : (
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-14 h-14 bg-white rounded-full border-2 border-purple-300 shadow-inner flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-500 to-transparent"></div>
+                    <span className="text-[10px] font-bold text-purple-700 relative z-10 text-center">Random<br/>Sample</span>
+                  </motion.div>
+                )}
+              </div>
+
+              <ArrowRight className="w-5 h-5 text-slate-300 shrink-0" />
+
+              {/* Decoder */}
+              <div className="flex flex-col items-center shrink-0">
+                <span className="text-[10px] font-bold text-blue-700 mb-1 uppercase">Decoder</span>
+                <div className={`w-20 h-16 bg-slate-800 rounded-xl shadow-md flex items-center justify-center border-2 border-slate-700 text-white font-bold font-mono text-xs ${step === 2 || step === 3 ? 'ring-4 ring-blue-300 ring-offset-2' : ''}`}>
+                  MLP 2
+                </div>
+              </div>
+
+              <ArrowRight className="w-5 h-5 text-slate-300 shrink-0" />
+
+              {/* Output Cat */}
+              <div className="flex flex-col items-center shrink-0 relative">
+                <span className="text-[10px] font-bold text-green-700 mb-1 font-mono">{step === 3 ? 'x_new (Synthetic)' : 'x_pred (Reconstructed)'}</span>
+                <div className={`w-16 h-16 bg-white border-2 border-green-400 rounded-lg overflow-hidden p-0.5 shadow-md ${step === 2 ? 'ring-4 ring-green-300 ring-offset-2' : ''}`}>
+                  <img src={step === 3 ? "https://picsum.photos/id/40/100/100" : "https://picsum.photos/id/219/100/100"} className={`w-full h-full object-cover grayscale ${step < 3 ? 'opacity-80 blur-[0.5px]' : ''}`} />
+                </div>
+                
+                {/* The NLL Loss Connector */}
+                {step === 2 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute -bottom-16 w-64 right-0 border-b-2 border-r-2 border-l-2 border-dashed border-blue-400 rounded-b-xl h-14 flex items-end justify-center pb-1 z-20 pointer-events-none">
+                     <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-2 py-1 rounded translate-y-1/2 shadow-sm border border-blue-300">Compare: Negative Log-Likelihood (NLL) Loss</span>
+                     {/* Line pointing to input image */}
+                     <div className="absolute top-0 left-0 w-4 h-full border-l-2 border-dashed border-blue-400"></div>
+                  </motion.div>
+                )}
+              </div>
+
+           </div>
+           
+           {/* Scissors Animation for Inference */}
+           {step === 3 && (
+             <motion.div 
+               initial={{ opacity: 0, y: -50 }} 
+               animate={{ opacity: 1, y: 0 }} 
+               className="absolute left-[35%] top-1/2 transform -translate-y-1/2 -translate-x-1/2 z-30 flex flex-col items-center"
+             >
+               <Scissors className="w-12 h-12 text-slate-800 transform -rotate-90 animate-pulse" />
+               <div className="h-32 border-l-4 border-dashed border-slate-800 w-0 mt-2"></div>
+             </motion.div>
+           )}
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- SLIDE 7: The Full VAE Picture ---
 const TheFullVAESlide = () => {
   const [mode, setMode] = useState('training'); // 'training' or 'generation'
 
@@ -1005,7 +1209,8 @@ const Slideshow = () => {
     FormulationSlide,
     InferenceSlide,
     VariationalInferenceSlide,
-    TheFullVAESlide, // The new combined VAE slide!
+    CatJourneySlide, 
+    TheFullVAESlide,
   ];
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -1014,9 +1219,9 @@ const Slideshow = () => {
   const CurrentSlideComponent = slides[currentSlide];
 
   return (
-    <div className="flex flex-col min-h-full bg-slate-100 font-sans">
+    <div className="flex flex-col h-screen bg-slate-100 font-sans">
       {/* Top Progress Bar */}
-      <div className="w-full h-1.5 bg-slate-200 shrink-0">
+      <div className="w-full h-1.5 bg-slate-200">
         <motion.div
           className="h-full bg-slate-800"
           initial={{ width: '0%' }}
@@ -1025,7 +1230,7 @@ const Slideshow = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-grow overflow-y-auto">
+      <div className="flex-grow overflow-hidden relative">
         <AnimatePresence mode='wait'>
           <motion.div
             key={currentSlide}
@@ -1033,6 +1238,7 @@ const Slideshow = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
+            className="h-full w-full absolute inset-0"
           >
             <CurrentSlideComponent />
           </motion.div>
@@ -1040,7 +1246,7 @@ const Slideshow = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex justify-between items-center p-4 md:p-6 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 shrink-0">
+      <div className="flex justify-between items-center p-4 md:p-6 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
         <button
           onClick={prevSlide}
           className="p-3 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
