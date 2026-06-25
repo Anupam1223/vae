@@ -5,7 +5,7 @@ import {
   Filter, Shuffle, Move, RotateCw, 
   LineChart, Target, ArrowRight, Box, 
   Network, Activity, Eye, Zap, Combine, Split,
-  Search, Image as ImageIcon // Added missing icon imports
+  Search, Image as ImageIcon
 } from 'lucide-react';
 
 // --- SLIDE 1: Introduction to Representation Learning ---
@@ -236,9 +236,7 @@ const FundamentalGoalsSlide = () => {
                 activeGoal === key ? 'bg-white shadow-md border-indigo-500 text-indigo-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300'
               }`}
             >
-              <div className={activeGoal === key ? 'text-indigo-600' : 'text-slate-400'}>
-                {goals[key].icon}
-              </div>
+              <div className={activeGoal === key ? 'text-indigo-600' : 'text-slate-400'}>{goals[key].icon}</div>
               <span className="text-sm">{goals[key].title}</span>
             </button>
           ))}
@@ -436,18 +434,24 @@ const DisentanglementSlide = () => {
   );
 };
 
-// --- SLIDE 5: The Manifold Hypothesis ---
+// --- SLIDE 5: The Manifold Hypothesis (FIXED BLUR & 3D CSS) ---
 const ManifoldHypothesisSlide = () => {
   const [unrolled, setUnrolled] = useState(false);
 
   // Generate a twisted "Swiss Roll" manifold
   const manifoldPoints = Array.from({ length: 200 }).map((_, i) => {
+    // Parameter t (along the curve), y (height)
     const t = 1.5 + Math.random() * 3.5; 
     const y = (Math.random() - 0.5) * 4; 
+    
+    // 3D coordinates (twisted)
     const x3d = t * Math.cos(t);
     const z3d = t * Math.sin(t);
+    
+    // 2D coordinates (unrolled/flattened)
     const x2d = t * 2 - 5; 
     const y2d = y * 1.5;
+
     return { id: i, t, y, x3d, z3d, y3d: y, x2d, y2d };
   });
 
@@ -493,24 +497,25 @@ const ManifoldHypothesisSlide = () => {
               </span>
            </div>
 
-           {/* The Plot Area */}
-           <div className="w-full h-full relative perspective-[1000px] flex items-center justify-center">
+           {/* The Plot Area (Using inline styles to guarantee 3D CSS works) */}
+           <div className="w-full h-full relative flex items-center justify-center" style={{ perspective: '1000px' }}>
               <motion.div 
-                className="w-full h-full absolute inset-0 preserve-3d"
+                className="w-full h-full absolute inset-0"
+                style={{ transformStyle: 'preserve-3d' }}
                 animate={{ 
                   rotateY: unrolled ? 0 : 360,
                   rotateX: unrolled ? 0 : 15
                 }}
                 transition={{ duration: unrolled ? 1 : 20, repeat: unrolled ? 0 : Infinity, ease: "linear" }}
               >
-                 {/* CSS Bounding Box (Only visible in 3D) */}
-                 <motion.div animate={{ opacity: unrolled ? 0 : 0.2 }} className="absolute inset-0 border-2 border-indigo-300 transform translate-z-[-100px] pointer-events-none"></motion.div>
+                 {/* Central axis reference to ground the 3D space */}
+                 <div className="absolute left-1/2 top-1/4 bottom-1/4 w-px bg-slate-700/50" style={{ transform: 'translateZ(0px)'}}></div>
                  
                  {/* The Data Points */}
                  {manifoldPoints.map(p => (
                    <motion.div 
                      key={p.id}
-                     className={`absolute w-2 h-2 rounded-full shadow-[0_0_5px_rgba(255,255,255,0.5)] ${unrolled ? 'bg-emerald-400' : 'bg-indigo-400'}`}
+                     className={`absolute w-3 h-3 rounded-full ${unrolled ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]'}`}
                      animate={{
                        x: unrolled ? p.x2d * 30 : p.x3d * 20,
                        y: unrolled ? p.y2d * 30 : p.y3d * 30,
@@ -518,16 +523,11 @@ const ManifoldHypothesisSlide = () => {
                      }}
                      style={{
                        left: '50%', top: '50%',
-                       transform: `translate3d(0px, 0px, 0px)`
+                       marginTop: '-6px', marginLeft: '-6px'
                      }}
                      transition={{ duration: 1, type: "spring", bounce: 0.2 }}
                    />
                  ))}
-                 
-                 {/* The Manifold Surface (Stylized approximation) */}
-                 {!unrolled && (
-                   <div className="absolute inset-0 bg-indigo-500/20 backdrop-blur-[1px] transform rotate-y-[45deg] translate-z-[-20px] rounded-full blur-md"></div>
-                 )}
               </motion.div>
            </div>
         </div>
