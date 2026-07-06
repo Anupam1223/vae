@@ -7,7 +7,8 @@ import {
   Calculator, ArrowDown, RotateCcw, Cpu, 
   TrendingDown, ArrowLeftRight, AlertTriangle, 
   CheckCircle, Zap, FileWarning, ArrowUpRight,
-  Car, Bus, Map
+  Car, Bus, Map, Filter, Minimize, Maximize,
+  Database, Eye, Settings2, Unlink
 } from 'lucide-react';
 
 // --- SLIDE 1: Entropy (H) ---
@@ -503,7 +504,6 @@ const KLAsymmetryRealWorldSlide = () => {
                   {klMode === 'vae' && (
                     <motion.path 
                       key="vae" initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}
-                      // In VAE, guess pulls smoothly towards center
                       d="M 0,100 C 35,100 45,20 50,20 C 55,20 65,100 100,100" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray="4 4" 
                     />
                   )}
@@ -709,6 +709,366 @@ const KLDivergenceSlide = () => {
   );
 };
 
+// --- SLIDE 8: The Information Bottleneck Principle ---
+const InformationBottleneckSlide = () => {
+  const [beta, setBeta] = useState(1);
+
+  // Derived styling based on beta (acts as the bottleneck width)
+  const getBottleneckWidth = () => {
+    if (beta === 0) return 96; // Wide open
+    if (beta === 1) return 48; // Moderate
+    return 16; // Tightly constrained
+  };
+
+  // Particles passing through
+  const numParticles = 20;
+  const particles = Array.from({length: numParticles}).map((_, i) => ({
+    id: i,
+    isSignal: i < 5, // Only 5 particles represent the core signal (relevant to Y)
+    delay: Math.random() * 2
+  }));
+
+  return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto bg-slate-50">
+      <div className="flex flex-col items-center shrink-0 mb-6">
+        <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">The Information Bottleneck Principle</h2>
+        <p className="text-slate-600 text-center max-w-4xl text-sm md:text-base">
+          A formal framework for representation learning. The goal is to squeeze the input data <span className="font-mono font-bold text-blue-600">X</span> through a "bottleneck" <span className="font-mono font-bold text-emerald-600">Z</span> that discards irrelevant noise but retains all the information necessary for the target task <span className="font-mono font-bold text-rose-600">Y</span>.
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto w-full flex-grow items-stretch pb-8">
+        
+        {/* LEFT: Visualizer */}
+        <div className="flex-[1.5] bg-slate-900 rounded-2xl shadow-xl border border-slate-700 p-8 flex flex-col relative overflow-hidden text-white">
+           <h3 className="font-bold text-slate-300 mb-8 text-sm uppercase tracking-widest text-center">Interactive Structure</h3>
+
+           <div className="flex-grow flex items-center justify-between relative w-full h-48 my-8 px-4">
+              
+              {/* Input X */}
+              <div className="flex flex-col items-center z-10 w-24 shrink-0">
+                 <div className="w-20 h-20 bg-blue-300 text-blue-900 font-bold flex flex-col items-center justify-center shadow-lg rounded-sm border-2 border-blue-400">
+                    <span>Input</span>
+                    <span className="text-xl font-mono mt-1">X</span>
+                 </div>
+                 <div className="mt-4 flex gap-1 flex-wrap w-full justify-center opacity-70">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span><span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_5px_#fb7185]"></span><span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span className="text-[9px] text-slate-400 mt-1 text-center leading-tight">Lots of noise,<br/>some signal</span>
+                 </div>
+              </div>
+
+              {/* Arrow to Encoder */}
+              <div className="flex-1 flex flex-col items-center relative z-0">
+                 <span className="text-[10px] text-slate-400 mb-1 absolute -top-8 text-center w-full">Encoder q(Z|X)<br/>Constrain I(X;Z)</span>
+                 <div className="w-full h-0.5 bg-slate-500"></div>
+                 <div className="absolute right-0 w-0 h-0 border-l-[8px] border-l-slate-500 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent top-[-4px]"></div>
+              </div>
+
+              {/* The Bottleneck Z */}
+              <div className="flex flex-col items-center z-10 shrink-0 w-48 transition-all duration-500 ease-in-out" style={{ transform: `scaleY(${beta === 0 ? 1 : beta === 1 ? 0.7 : 0.4})`}}>
+                 <div className="w-full h-32 bg-emerald-200/90 text-emerald-900 border-2 border-emerald-400 rounded-[50%] flex flex-col items-center justify-center shadow-lg relative overflow-hidden backdrop-blur-sm">
+                    <span className="font-bold text-xs">Representation</span>
+                    <span className="text-lg font-mono font-bold my-1">Z</span>
+                    <span className="text-[10px] opacity-80">(Bottleneck)</span>
+                    
+                    {/* Animated Particles flowing through */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                       {particles.map(p => {
+                         // Only let signal through if bottleneck is tight
+                         const willPass = beta === 0 ? true : beta === 1 ? (p.isSignal || p.id % 3 === 0) : p.isSignal;
+                         return willPass && (
+                           <motion.div 
+                             key={p.id}
+                             initial={{ x: -80, opacity: 0 }}
+                             animate={{ x: 80, opacity: [0, 1, 1, 0] }}
+                             transition={{ duration: 2, repeat: Infinity, delay: p.delay, ease: "linear" }}
+                             className={`absolute w-2 h-2 rounded-full ${p.isSignal ? 'bg-rose-500 shadow-[0_0_8px_#fb7185] z-20' : 'bg-blue-400 opacity-40 z-10'}`}
+                             style={{ top: `${20 + (p.id * 5) % 60}%` }}
+                           />
+                         )
+                       })}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Arrow to Target */}
+              <div className="flex-1 flex flex-col items-center relative z-0">
+                 <span className="text-[10px] text-slate-400 mb-1 absolute -top-8 text-center w-full">Task p(Y|Z)<br/>Maximize I(Z;Y)</span>
+                 <div className="w-full h-0.5 bg-slate-500"></div>
+                 <div className="absolute right-0 w-0 h-0 border-l-[8px] border-l-slate-500 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent top-[-4px]"></div>
+              </div>
+
+              {/* Target Y */}
+              <div className="flex flex-col items-center z-10 w-24 shrink-0">
+                 <div className="w-20 h-20 bg-rose-200 text-rose-900 font-bold flex flex-col items-center justify-center shadow-lg rounded-sm border-2 border-rose-400">
+                    <span>Target</span>
+                    <span className="text-xl font-mono mt-1">Y</span>
+                 </div>
+                 <div className="mt-4 flex gap-1 flex-wrap w-full justify-center opacity-70 min-h-[20px]">
+                    <AnimatePresence>
+                       {beta < 2 && <motion.span initial={{ opacity:0 }} animate={{opacity:1}} exit={{opacity:0}} className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_5px_#fb7185]"></motion.span>}
+                       {beta < 2 && <motion.span initial={{ opacity:0 }} animate={{opacity:1}} exit={{opacity:0}} className="text-[9px] text-slate-400 w-full text-center leading-tight">Task<br/>Successful</motion.span>}
+                       {beta === 2 && <motion.span initial={{ opacity:0 }} animate={{opacity:1}} exit={{opacity:0}} className="text-[9px] text-rose-400 font-bold w-full text-center leading-tight">Over-compressed!<br/>Signal lost.</motion.span>}
+                    </AnimatePresence>
+                 </div>
+              </div>
+
+           </div>
+
+           {/* Interactive Slider */}
+           <div className="mt-auto w-full max-w-md mx-auto flex flex-col gap-2 bg-slate-800 p-4 rounded-xl border border-slate-600">
+             <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest">
+               <span className={beta === 0 ? 'text-blue-400' : ''}>β = 0 (No Compression)</span>
+               <span className={beta === 1 ? 'text-emerald-400' : ''}>β = 1 (Optimal)</span>
+               <span className={beta === 2 ? 'text-rose-400' : ''}>β = High (Too Tight)</span>
+             </div>
+             <input type="range" min="0" max="2" step="1" value={beta} onChange={(e) => setBeta(parseInt(e.target.value))} className="w-full accent-emerald-500" />
+           </div>
+
+        </div>
+
+        {/* RIGHT: Math & Theory */}
+        <div className="flex-1 flex flex-col gap-4">
+           
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+             <h4 className="font-bold text-slate-800 mb-2 border-b pb-2">The IB Objective</h4>
+             <div className="font-mono text-lg font-bold text-center bg-slate-100 py-3 rounded-xl border border-slate-300 text-slate-700 my-4 shadow-inner">
+               L<sub className="text-xs">IB</sub> = I(Z;Y) - <span className="text-emerald-500">β</span> I(X;Z)
+             </div>
+             <p className="text-sm text-slate-600 leading-relaxed">
+               We want to <strong>maximize</strong> this equation. It represents a tug-of-war between two opposing forces controlled by the Lagrange multiplier <span className="font-bold text-emerald-600">β</span>.
+             </p>
+           </div>
+
+           <div className="flex flex-col gap-3 flex-grow">
+              <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl">
+                 <div className="font-bold text-rose-800 text-sm mb-1 flex items-center gap-2"><Target className="w-4 h-4"/> Maximize I(Z;Y)</div>
+                 <p className="text-xs text-slate-700">The representation <span className="font-mono">Z</span> must retain as much information as possible about the final target <span className="font-mono">Y</span> to solve the task accurately.</p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                 <div className="font-bold text-blue-800 text-sm mb-1 flex items-center gap-2"><Minimize className="w-4 h-4"/> Minimize I(X;Z)</div>
+                 <p className="text-xs text-slate-700">Subtracting this term forces <span className="font-mono">Z</span> to "forget" information about the input <span className="font-mono">X</span> that isn't strictly necessary for the task. This acts as massive compression, shedding noise and preventing memorization.</p>
+              </div>
+
+              {beta === 0 && <div className="bg-slate-800 text-white text-xs p-3 rounded-lg animate-pulse font-medium">When β=0, the bottleneck is wide open. Z simply memorizes X (overfitting). No useful representation is learned.</div>}
+              {beta === 1 && <div className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs p-3 rounded-lg font-medium shadow-sm">At optimal β, noise is squeezed out but the core signal survives. A robust representation is formed!</div>}
+              {beta === 2 && <div className="bg-rose-100 text-rose-900 border border-rose-300 text-xs p-3 rounded-lg font-medium shadow-sm">When β is too high, the bottleneck is too tight. It accidentally squeezes out the target signal along with the noise!</div>}
+           </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// --- SLIDE 9: Info Theory in Context of VAEs ---
+const VAEInfoTheorySlide = () => {
+  return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto bg-slate-50">
+      <div className="flex flex-col items-center shrink-0 mb-8">
+        <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">Information Theory in VAEs</h2>
+        <p className="text-slate-600 text-center max-w-4xl text-sm md:text-base">
+          Information Theory isn't just an analytical tool—it is the literal blueprint for Variational Autoencoders. The VAE loss function is just a specific implementation of the Information Bottleneck principle!
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-8 max-w-5xl mx-auto w-full flex-grow items-stretch pb-8">
+        
+        {/* Mapping Visualization */}
+        <div className="flex-1 bg-white rounded-2xl shadow-xl border border-slate-200 p-8 flex flex-col relative w-full">
+           
+           <h3 className="font-bold text-slate-700 mb-8 text-sm uppercase tracking-widest text-center border-b pb-2">The Direct Mapping</h3>
+
+           <div className="flex flex-col gap-8 flex-grow justify-center">
+              
+              {/* Row 1: Reconstruction -> Maximize I */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200 relative shadow-sm">
+                 <div className="flex-1 flex flex-col items-center text-center px-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">VAE Term</span>
+                    <span className="font-mono text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 border border-blue-200 rounded">E[ log p(x|z) ]</span>
+                    <span className="text-[10px] mt-1 text-slate-600 font-semibold">Reconstruction Accuracy</span>
+                 </div>
+                 
+                 <div className="shrink-0 mx-2 text-slate-300">
+                    <ArrowLeftRight className="w-6 h-6" />
+                 </div>
+
+                 <div className="flex-1 flex flex-col items-center text-center px-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">Info Theory Concept</span>
+                    <span className="font-mono text-sm font-bold text-rose-600 bg-rose-50 px-2 py-1 border border-rose-200 rounded">Maximize I(X;Z)</span>
+                    <span className="text-[10px] mt-1 text-slate-600 font-semibold">Keep info to rebuild X</span>
+                 </div>
+
+                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-1 shadow-sm border border-slate-100 z-10 text-slate-400">
+                   <Merge className="w-4 h-4"/>
+                 </div>
+              </div>
+
+              {/* Row 2: KL Div -> Minimize I */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200 relative shadow-sm">
+                 <div className="flex-1 flex flex-col items-center text-center px-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">VAE Term</span>
+                    <span className="font-mono text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-1 border border-emerald-200 rounded">D_KL( q(z|x) || p(z) )</span>
+                    <span className="text-[10px] mt-1 text-slate-600 font-semibold">Prior Regularization</span>
+                 </div>
+                 
+                 <div className="shrink-0 mx-2 text-slate-300">
+                    <ArrowLeftRight className="w-6 h-6" />
+                 </div>
+
+                 <div className="flex-1 flex flex-col items-center text-center px-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">Info Theory Concept</span>
+                    <span className="font-mono text-sm font-bold text-purple-600 bg-purple-50 px-2 py-1 border border-purple-200 rounded">Minimize I(X;Z)</span>
+                    <span className="text-[10px] mt-1 text-slate-600 font-semibold">The Information Bottleneck</span>
+                 </div>
+
+                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-1 shadow-sm border border-slate-100 z-10 text-slate-400">
+                   <Split className="w-4 h-4"/>
+                 </div>
+              </div>
+
+           </div>
+
+           <p className="text-xs text-center text-slate-500 mt-6 max-w-sm mx-auto">
+             In a standard autoencoder, the target <span className="font-mono">Y</span> is just the input <span className="font-mono">X</span> itself. The VAE simultaneously tries to remember <span className="font-mono">X</span> while actively forgetting everything except the absolute core features!
+           </p>
+        </div>
+
+        {/* Deep Dive Explanations */}
+        <div className="flex-1 flex flex-col gap-4">
+           
+           <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm">
+             <h4 className="font-bold text-emerald-900 mb-2 flex items-center gap-2"><Database className="w-4 h-4"/> KL Divergence = Channel Capacity</h4>
+             <p className="text-sm text-slate-700 leading-relaxed">
+               Minimizing <span className="font-mono bg-white px-1 border rounded">D_KL</span> under Evidence Lower Bound (ELBO) maximization implicitly controls the <strong>channel capacity</strong> between X and Z.
+             </p>
+             <p className="text-xs text-slate-600 mt-2">
+               If the divergence is forced to be low, the "pipe" (channel) carrying information from the Encoder to the Latent Space gets physically narrower in an information-theoretic sense. It cannot transmit raw pixel noise, forcing it to compress.
+             </p>
+           </div>
+
+           <div className="bg-purple-50 border border-purple-200 p-5 rounded-2xl shadow-sm flex-grow">
+             <h4 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><Filter className="w-4 h-4"/> Disentanglement Guarantee</h4>
+             <p className="text-sm text-slate-700 leading-relaxed mb-3">
+               Information theory also explains why VAEs can achieve Disentanglement natively:
+             </p>
+             <ul className="text-xs text-slate-700 space-y-2 pl-4 list-disc marker:text-purple-400">
+               <li>If the prior <span className="font-mono font-bold">p(z)</span> is factorial (meaning its dimensions $z_1$, $z_2$ are mathematically independent)...</li>
+               <li>And we use KL Divergence to force our guess <span className="font-mono font-bold">q(z|x)</span> to closely mimic that prior...</li>
+               <li>Then the dimensions of our learned representation are actively encouraged to be independent! <br/>(<span className="font-mono bg-white px-1 rounded border">I(Z_i ; Z_j) ≈ 0</span>)</li>
+             </ul>
+           </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// --- SLIDE 10: Evaluating Representations ---
+const EvaluatingInfoSlide = () => {
+  const [indep, setIndep] = useState(10); // 0 to 100 for visual independence
+
+  return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto bg-slate-900 text-white">
+      <div className="flex flex-col items-center shrink-0 mb-6">
+        <h2 className="text-3xl font-bold text-white mb-2 text-center">Evaluating Representations</h2>
+        <p className="text-slate-400 text-center max-w-4xl text-sm md:text-base">
+          We use Mutual Information not just to train models, but to score them. We can precisely quantify the two hallmarks of a "good" representation: Informativeness and Disentanglement.
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto w-full flex-grow items-stretch pb-8">
+        
+        {/* Informativeness */}
+        <div className="flex-1 bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 p-6 flex flex-col relative overflow-hidden">
+           <h3 className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-widest flex items-center gap-2 border-b border-slate-600 pb-2">
+             <Eye className="w-5 h-5 text-blue-400"/> 1. Informativeness
+           </h3>
+           <p className="text-sm text-slate-400 mb-6">
+             How much does a latent variable <span className="font-mono text-blue-300">Z_i</span> tell us about a known underlying factor in the data <span className="font-mono text-emerald-300">F_k</span>?
+           </p>
+
+           <div className="flex-grow flex flex-col items-center justify-center gap-6">
+              <div className="flex items-center gap-6 bg-slate-900 p-6 rounded-xl border border-slate-700 w-full justify-center">
+                 <div className="flex flex-col items-center">
+                   <div className="w-16 h-16 bg-blue-500/20 border-2 border-blue-500 rounded flex items-center justify-center font-mono font-bold text-blue-400 shadow-inner">Z_1</div>
+                   <span className="text-[10px] text-slate-400 mt-2">Latent Var 1</span>
+                 </div>
+
+                 <div className="flex flex-col items-center justify-center">
+                    <span className="font-mono font-bold text-white bg-slate-800 px-3 py-1 rounded-full border border-slate-600 shadow-md z-10 whitespace-nowrap">
+                      I(Z_1 ; F_size) = High
+                    </span>
+                    <div className="h-0.5 w-full bg-slate-600 -mt-3.5 z-0"></div>
+                 </div>
+
+                 <div className="flex flex-col items-center">
+                   <div className="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-500 rounded-full flex items-center justify-center font-mono font-bold text-emerald-400 shadow-inner">F_size</div>
+                   <span className="text-[10px] text-slate-400 mt-2 text-center leading-tight">True Factor<br/>(Size)</span>
+                 </div>
+              </div>
+              <p className="text-xs text-slate-500 text-center italic bg-slate-800 px-4 py-2 rounded">
+                A high score proves that if we read Z_1, we mathematically know the exact Size of the object in the image.
+              </p>
+           </div>
+        </div>
+
+        {/* Disentanglement */}
+        <div className="flex-[1.2] bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 p-6 flex flex-col relative overflow-hidden">
+           <h3 className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-widest flex items-center gap-2 border-b border-slate-600 pb-2">
+             <Unlink className="w-5 h-5 text-purple-400"/> 2. Disentanglement
+           </h3>
+           <p className="text-sm text-slate-400 mb-4">
+             Are different latent variables statistically independent? <span className="font-mono text-rose-300">I(Z_i ; Z_j)</span> quantifies this. If they are entangled, moving one accidentally moves the other.
+           </p>
+
+           <div className="flex-grow flex flex-col items-center justify-center gap-4">
+              
+              <div className="relative w-full h-32 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center">
+                 {/* Visual representation of Independence vs Entanglement */}
+                 <motion.div 
+                   className="absolute w-24 h-24 rounded-full border-4 border-purple-500 bg-purple-500/30 mix-blend-screen flex items-center justify-center"
+                   animate={{ x: -40 - (indep * 0.5) }}
+                 >
+                   <span className="text-purple-300 font-bold font-mono">Z_1</span>
+                 </motion.div>
+
+                 <motion.div 
+                   className="absolute w-24 h-24 rounded-full border-4 border-rose-500 bg-rose-500/30 mix-blend-screen flex items-center justify-center"
+                   animate={{ x: 40 + (indep * 0.5) }}
+                 >
+                   <span className="text-rose-300 font-bold font-mono">Z_2</span>
+                 </motion.div>
+
+                 <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-slate-600 px-2 py-1 rounded text-xs font-mono font-bold text-white z-10">
+                   I(Z_1 ; Z_2) = {Math.max(0, 100 - indep * 2).toFixed(1)}
+                 </div>
+              </div>
+
+              <div className="w-full max-w-sm flex flex-col gap-2 mt-4 bg-slate-800 p-4 rounded-xl border border-slate-600 shadow-sm">
+                 <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                   <span className={indep < 20 ? 'text-rose-400' : ''}>Entangled</span>
+                   <span className={indep > 80 ? 'text-emerald-400' : ''}>Fully Disentangled</span>
+                 </div>
+                 <input type="range" min="0" max="50" value={indep} onChange={(e) => setIndep(parseInt(e.target.value))} className="w-full accent-purple-500" />
+                 <p className="text-[10px] text-slate-400 mt-2 text-center leading-tight">
+                   {indep < 20 ? "High Mutual Info! Z_1 and Z_2 are sharing redundant information. If you change Z_1, Z_2 is also affected." : "Low Mutual Info! Z_1 and Z_2 are completely statistically independent."}
+                 </p>
+              </div>
+
+           </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 
 // --- MAIN SLIDESHOW COMPONENT ---
 const Slideshow = () => {
@@ -720,7 +1080,10 @@ const Slideshow = () => {
     KLSmoothingSlide,
     KLTheorySlide,
     KLAsymmetryRealWorldSlide,
-    KLDivergenceSlide
+    KLDivergenceSlide,
+    InformationBottleneckSlide,
+    VAEInfoTheorySlide,
+    EvaluatingInfoSlide
   ];
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -762,11 +1125,11 @@ const Slideshow = () => {
           <ChevronLeft />
         </button>
         
-        <div className="flex space-x-1 sm:space-x-2">
+        <div className="flex space-x-1 sm:space-x-1.5 md:space-x-2">
           {slides.map((_, i) => (
             <div
               key={i}
-              className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all ${i === currentSlide ? 'bg-indigo-600 scale-125' : 'bg-slate-300'}`}
+              className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 rounded-full transition-all ${i === currentSlide ? 'bg-indigo-600 scale-125' : 'bg-slate-300'}`}
             />
           ))}
         </div>
