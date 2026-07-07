@@ -174,7 +174,7 @@ const KLDefinitionSlide = () => {
       <div className="flex flex-col items-center shrink-0 mb-8">
         <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">What is KL Divergence?</h2>
         <p className="text-slate-600 text-center max-w-4xl text-sm md:text-base">
-          Before the math, let's understand the concept. KL Divergence, denoted <span className="font-mono bg-slate-200 px-1 rounded text-sm">D_KL(P||Q)</span>, measures <strong>the information lost</strong> when you use an approximation (Q) instead of the true distribution (P).
+          Before the math, let's understand the concept. KL divergence, is a measure of how one probability distribution differs from a second, reference probability distribution. KL Divergence, denoted <span className="font-mono bg-slate-200 px-1 rounded text-sm">D_KL(P||Q)</span>, measures <strong>the information lost</strong> when you use an approximation (Q) instead of the true distribution (P).
         </p>
       </div>
 
