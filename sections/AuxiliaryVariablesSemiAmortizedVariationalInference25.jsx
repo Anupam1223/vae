@@ -740,17 +740,17 @@ const TheInnerLoopSlide = () => {
            <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
              <h3 className="text-lg font-bold text-blue-600 mb-4 flex items-center gap-2"><Lock className="w-5 h-5"/> 1. The Encoder is OFF</h3>
              <p className="text-sm text-slate-600 leading-relaxed mb-4">
-               We used the Encoder once to get $\lambda_0$. After detaching $\lambda$, the Encoder is completely removed from this loop.
+               We used the Encoder once to get λ₀. After detaching λ, the Encoder is completely removed from this loop.
              </p>
 
              <h3 className="text-lg font-bold text-rose-600 mb-4 flex items-center gap-2"><Lock className="w-5 h-5"/> 2. The Decoder is FROZEN</h3>
              <p className="text-sm text-slate-600 leading-relaxed mb-4">
-               We must pass our samples through the Decoder to calculate the ELBO score (to see how good our current $\lambda$ is). But we set <strong><span className="font-mono text-xs bg-slate-100 px-1 rounded">requires_grad=False</span></strong> on all Decoder weights. It acts purely as a measuring stick.
+               We must pass our samples through the Decoder to calculate the ELBO score (to see how good our current λ is). But we set <strong><span className="font-mono text-xs bg-slate-100 px-1 rounded">requires_grad=False</span></strong> on all Decoder weights. It acts purely as a measuring stick.
              </p>
 
              <h3 className="text-lg font-bold text-emerald-600 mb-4 flex items-center gap-2"><Unlock className="w-5 h-5"/> 3. Only λ is UPDATED</h3>
              <p className="text-sm text-slate-600 leading-relaxed">
-               When backpropagation runs, the gradients flow <em>through</em> the frozen Decoder without changing it, and land directly into our floating $\lambda$ parameters!
+               When backpropagation runs, the gradients flow <em>through</em> the frozen Decoder without changing it, and land directly into our floating λ parameters!
              </p>
            </div>
 
@@ -826,7 +826,7 @@ const TheInnerLoopSlide = () => {
              <div className="w-56 py-4 bg-blue-900/30 border-2 border-blue-700/50 rounded-xl flex flex-col items-center justify-center relative" style={{ marginTop: '40px' }}>
                <Lock className="absolute -top-3 -right-3 w-6 h-6 text-rose-500 bg-slate-900 rounded-full p-1 border border-slate-700" />
                <span className="font-bold text-blue-300 text-sm">Decoder p(x|z)</span>
-               <span className="text-[10px] text-blue-200 text-center mt-1 mx-2">Takes $z$, calculates reconstruction, but parameters $\theta$ are frozen.</span>
+               <span className="text-[10px] text-blue-200 text-center mt-1 mx-2">Takes z, calculates reconstruction, but parameters θ are frozen.</span>
                <span className="text-[10px] text-rose-400 font-bold bg-rose-900/30 px-2 rounded mt-2 border border-rose-800">requires_grad=False</span>
              </div>
 
@@ -846,116 +846,336 @@ const TheInnerLoopSlide = () => {
   );
 };
 
-const RefinementSandboxSlide = () => {
-  const [step, setStep] = useState(0);
-  const maxSteps = 5;
+const RefinementMathDeepDiveSlide = () => {
+  const [t, setT] = useState(0);
+  const T_MAX = 5;
 
-  const path = [
-    { x: 30, y: 70 }, // lambda_0
-    { x: 45, y: 55 }, // Step 1
-    { x: 58, y: 45 }, // Step 2
-    { x: 68, y: 38 }, // Step 3
-    { x: 75, y: 33 }, // Step 4
-    { x: 80, y: 30 }, // lambda_K
-  ];
+  // The true optimal parameters for this specific image (unknown to the model)
+  const targetMu = 70;
+  const targetSigma = 15;
+  const maxElbo = -12.5;
 
-  const currentPos = path[step];
+  // Track the history of our lambda parameters: lambda_0, lambda_1, etc.
+  const [lambdaHistory, setLambdaHistory] = useState([
+    { t: 0, mu: 20, sigma: 35, elbo: -85.2, gradMu: 0, gradSigma: 0 } // lambda_0 (from Encoder)
+  ]);
 
-  const handleRefine = () => {
-    if (step < maxSteps) setStep(step + 1);
+  const currentLambda = lambdaHistory[t];
+  const isFinished = t >= T_MAX;
+
+  // Generate SVG path for a Gaussian curve
+  const generateGaussianPath = (mu, sigma, heightScale = 100) => {
+    let path = `M 0 100 `;
+    for (let x = 0; x <= 100; x += 1) {
+      const exponent = -0.5 * Math.pow((x - mu) / sigma, 2);
+      const y = 100 - (Math.exp(exponent) * heightScale * (20 / sigma)); // Scale height inversely to spread
+      path += `L ${x} ${Math.max(5, y)} `;
+    }
+    path += `L 100 100 Z`;
+    return path;
   };
-  const reset = () => setStep(0);
+
+  const executeNextStep = () => {
+    if (isFinished) return;
+
+    // Simulate calculating the Gradient of the ELBO with respect to lambda
+    // (In reality, PyTorch autodiff does this via backprop through the Decoder)
+    const current = lambdaHistory[t];
+    
+    // Fake gradient: Proportional to the distance from target
+    const gradMu = (targetMu - current.mu) * 0.8;
+    const gradSigma = (targetSigma - current.sigma) * 0.4;
+    
+    const learningRateEta = 0.5; // η
+
+    // THE FORMULA: lambda_{t+1} = lambda_t + (eta * gradient)
+    const nextMu = current.mu + (learningRateEta * gradMu);
+    const nextSigma = current.sigma + (learningRateEta * gradSigma);
+    
+    // Fake ELBO improving as we get closer
+    const nextElbo = current.elbo + Math.abs(gradMu * 0.5) + Math.abs(gradSigma * 0.5);
+
+    // Update history for the table
+    const updatedHistory = [...lambdaHistory];
+    updatedHistory[t].gradMu = gradMu;
+    updatedHistory[t].gradSigma = gradSigma;
+    
+    updatedHistory.push({
+      t: t + 1,
+      mu: nextMu,
+      sigma: Math.max(5, nextSigma), // prevent negative variance
+      elbo: t === T_MAX - 1 ? maxElbo : nextElbo, // reach max at end
+      gradMu: 0,
+      gradSigma: 0
+    });
+
+    setLambdaHistory(updatedHistory);
+    setT(t + 1);
+  };
+
+  const reset = () => {
+    setT(0);
+    setLambdaHistory([lambdaHistory[0]]);
+  };
 
   return (
     <div className="flex flex-col h-full p-6 md:p-8 overflow-y-auto bg-slate-50">
       <div className="flex flex-col items-center shrink-0 mb-6">
-        <h2 className="text-3xl font-bold text-emerald-600 mb-2 text-center">Interactive: The Refinement Loop</h2>
+        <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">Executing the Refinement Formula</h2>
         <p className="text-slate-600 text-center max-w-4xl text-sm md:text-base">
-          Click the "Refine" button to apply the formula: <span className="font-mono bg-slate-200 px-1 rounded font-bold">λ_{'{t+1}'} = λ_t + η∇_λ L(x_i, λ_t)</span>
+          Let's map the mathematical equations from the screenshot directly to the raw numbers. <br/>
+          Remember: <span className="font-mono font-bold bg-slate-200 px-1 rounded text-emerald-700">λ = (μ, σ)</span>. It is just a bucket holding a Mean and Variance!
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row justify-center items-stretch gap-8 flex-grow w-full max-w-6xl mx-auto pb-8">
-        <div className="flex-[1.2] bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-center relative">
-          <div className="bg-slate-900 p-6 rounded-xl text-white shadow-inner mb-8">
-            <h3 className="text-sm font-bold text-emerald-400 mb-4 flex items-center gap-2 uppercase tracking-widest">
-               <Activity className="w-5 h-5"/> Gradient Ascent on ELBO
-            </h3>
-            <p className="text-sm text-slate-300 leading-relaxed mb-4">
-              We freeze the neural network weights φ. We are now directly updating the <em>output values</em> λ (the mean and variance) to maximize the ELBO score specifically for image x_i.
-            </p>
-            <div className="bg-slate-800 p-4 rounded-lg font-mono text-center border border-slate-700 relative overflow-hidden">
-               <div className="text-slate-400 text-xs mb-2">Current Step: t = {step}</div>
-               <div className="text-lg md:text-xl flex items-center justify-center gap-2">
-                 <span className="text-emerald-400 font-bold">λ_{step}</span>
-                 {step < maxSteps && (
-                   <>
-                     <span className="text-white">→</span>
-                     <span className="text-emerald-400 font-bold">λ_{step + 1}</span>
-                     <span className="text-white">=</span>
-                     <span className="text-emerald-400">λ_{step}</span>
-                     <span className="text-amber-400">+</span>
-                     <span className="text-amber-400">η∇ L(x_i, λ_{step})</span>
-                   </>
-                 )}
-                 {step === maxSteps && (
-                   <span className="text-emerald-400">Final Posterior Reached!</span>
-                 )}
+      <div className="flex flex-col lg:flex-row justify-center items-stretch gap-8 flex-grow w-full max-w-7xl mx-auto pb-8">
+        
+        {/* Left: The Math Equations */}
+        <div className="flex-1 bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-between text-slate-200">
+           
+           <div className={`p-4 rounded-xl border-2 transition-all ${t === 0 ? 'bg-slate-800 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-slate-900/50 border-slate-700 opacity-50'}`}>
+             <h3 className="font-bold text-blue-400 mb-2 flex items-center gap-2">1. Initialization</h3>
+             <div className="font-mono text-center text-lg bg-slate-950 py-3 rounded border border-slate-800 shadow-inner">
+               <span className="text-white">λ</span><sub className="text-slate-500">0</sub> = <span className="text-blue-300">Encoder<sub className="text-slate-500">φ</sub>(x_i)</span>
+             </div>
+             {t === 0 && <p className="text-xs text-slate-400 mt-3">The neural network gives us our starting guess (λ₀). We freeze the network after this.</p>}
+           </div>
+
+           <div className={`p-4 rounded-xl border-2 transition-all ${t > 0 && t < T_MAX ? 'bg-slate-800 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'bg-slate-900/50 border-slate-700 opacity-50'}`}>
+             <h3 className="font-bold text-amber-400 mb-2 flex items-center gap-2">2. Refinement Loop (t={t})</h3>
+             <div className="font-mono text-center bg-slate-950 py-3 rounded border border-slate-800 shadow-inner flex flex-col gap-2 overflow-x-auto">
+               <div className="whitespace-nowrap text-sm md:text-base">
+                 <span className="text-white">λ</span><sub className="text-slate-500">t+1</sub> = <span className="text-white">λ</span><sub className="text-slate-500">t</sub> <span className="text-emerald-400">+</span> <span className="text-rose-400">η</span> <span className="text-emerald-400">∇</span><sub className="text-slate-500">λ_t</sub><span className="text-white"> L</span>(x_i, <span className="text-white">λ</span><sub className="text-slate-500">t</sub>)
                </div>
-            </div>
-          </div>
+             </div>
+             {(t > 0 && t < T_MAX) && (
+               <div className="text-xs text-slate-400 mt-3 space-y-1">
+                 <p><span className="text-rose-400 font-bold">η (Learning Rate):</span> The step size (e.g., 0.5).</p>
+                 <p><span className="text-emerald-400 font-bold">∇ L (Gradient):</span> Which way should μ and σ change to increase the ELBO score?</p>
+               </div>
+             )}
+           </div>
 
-          <div className="w-full flex gap-4">
-            <button 
-              onClick={handleRefine} disabled={step === maxSteps}
-              className="flex-1 py-4 bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-lg"
-            >
-              <FastForward className="w-6 h-6"/> {step === maxSteps ? 'Optimization Complete' : 'Step Refinement'}
-            </button>
-            <button 
-              onClick={reset} disabled={step === 0}
-              className="p-4 bg-slate-100 text-slate-600 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-200 transition-colors disabled:opacity-50"
-              title="Reset"
-            >
-              <RotateCcw className="w-6 h-6"/>
-            </button>
-          </div>
+           <div className={`p-4 rounded-xl border-2 transition-all ${isFinished ? 'bg-slate-800 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-slate-900/50 border-slate-700 opacity-50'}`}>
+             <h3 className="font-bold text-purple-400 mb-2 flex items-center gap-2">3. Final Posterior</h3>
+             <div className="font-mono text-center text-lg bg-slate-950 py-3 rounded border border-slate-800 shadow-inner">
+               <span className="text-white">q(z | x_i ; </span><span className="text-purple-400">λ<sub className="text-purple-700">T</sub></span>)
+             </div>
+             {isFinished && <p className="text-xs text-slate-400 mt-3">Optimization complete! We use λ_5 to calculate our final generative loss.</p>}
+           </div>
         </div>
 
-        <div className="flex-1 bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center relative overflow-hidden">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Instance-Specific ELBO Landscape</h3>
-          <div className="relative w-full max-w-[300px] aspect-square bg-slate-800 border-2 border-slate-700 rounded-xl flex items-center justify-center shadow-inner overflow-hidden">
-            <div className="absolute w-[120%] h-[120%] bg-blue-900 rounded-full opacity-20" style={{ top: '-10%', left: '20%' }}></div>
-            <div className="absolute w-[90%] h-[90%] bg-blue-700 rounded-full opacity-30" style={{ top: '5%', left: '35%' }}></div>
-            <div className="absolute w-[60%] h-[60%] bg-blue-500 rounded-full opacity-40" style={{ top: '20%', left: '50%' }}></div>
-            <div className="absolute w-[30%] h-[30%] bg-emerald-500 rounded-full opacity-60 blur-sm" style={{ top: '35%', left: '65%' }}></div>
-            <div className="absolute w-[10%] h-[10%] bg-emerald-400 rounded-full shadow-[0_0_20px_#34d399]" style={{ top: '45%', left: '75%' }}></div>
-            
-            <span className="absolute top-4 right-4 text-[10px] font-bold text-emerald-300">Optimal λ<br/>(Max ELBO)</span>
+        {/* Right: The Data Dashboard */}
+        <div className="flex-[1.5] flex flex-col gap-4 w-full">
+           
+           {/* Visualizer */}
+           <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-64 relative flex flex-col justify-end">
+              <h3 className="absolute top-4 left-4 text-xs font-bold text-slate-400 uppercase tracking-widest z-10">Latent Space (1D)</h3>
+              
+              <div className="absolute top-4 right-4 bg-slate-100 p-2 rounded text-[10px] font-mono border border-slate-200 z-10 text-right">
+                <div><span className="inline-block w-3 h-3 bg-emerald-100 border border-emerald-500 align-middle mr-1"></span> True Optimal</div>
+                <div className="mt-1"><span className="inline-block w-3 h-3 bg-blue-100 border border-blue-500 align-middle mr-1"></span> Current λ<sub className="text-slate-400">{t}</sub></div>
+              </div>
 
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-               {path.slice(0, step).map((p, i) => {
-                 const nextP = path[i + 1];
-                 return (
-                   <line key={i} x1={`${p.x}%`} y1={`${p.y}%`} x2={`${nextP.x}%`} y2={`${nextP.y}%`} stroke="#fcd34d" strokeWidth="3" strokeDasharray="4" />
-                 );
-               })}
-            </svg>
+              <div className="relative w-full h-full border-b-2 border-slate-300">
+                {/* Target Gaussian */}
+                <svg className="absolute inset-0 w-full h-full opacity-50" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <path d={generateGaussianPath(targetMu, targetSigma, 60)} fill="#d1fae5" stroke="#10b981" strokeWidth="2" strokeDasharray="4" />
+                </svg>
 
-            <motion.div 
-               className="absolute w-5 h-5 bg-amber-400 rounded-full border-2 border-white shadow-[0_0_15px_rgba(251,191,36,0.8)] z-20"
-               animate={{ left: `calc(${currentPos.x}% - 10px)`, top: `calc(${currentPos.y}% - 10px)` }}
-               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            />
-            
-            {step === 0 && <span className="absolute text-[10px] font-bold text-white bg-slate-800/80 px-2 py-1 rounded" style={{ left: '35%', top: '75%' }}>λ₀ (Encoder Start)</span>}
-            {step === maxSteps && <span className="absolute text-[10px] font-bold text-slate-900 bg-emerald-400 px-2 py-1 rounded" style={{ left: '60%', top: '55%' }}>λ_K (Refined)</span>}
-          </div>
+                {/* Ghost trails */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  {lambdaHistory.map((lam, i) => i < t && (
+                    <path key={i} d={generateGaussianPath(lam.mu, lam.sigma, 60)} fill="none" stroke="#93c5fd" strokeWidth="1" opacity={0.3 + (i * 0.1)} />
+                  ))}
+                </svg>
 
-          <p className="text-sm text-slate-600 mt-6 text-center leading-relaxed">
-             We use the neural network to jump straight to <span className="font-bold text-amber-500">λ₀</span>. Then, taking T = 5 steps of gradient ascent pushes the parameters up the hill to perfectly fit this specific datapoint!
-          </p>
+                {/* Current Lambda Gaussian */}
+                <svg className="absolute inset-0 w-full h-full drop-shadow-md transition-all duration-500" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <path d={generateGaussianPath(currentLambda.mu, currentLambda.sigma, 60)} fill="#bfdbfe" stroke="#3b82f6" strokeWidth="3" />
+                  
+                  {/* Arrow indicating gradient push */}
+                  {!isFinished && currentLambda.gradMu > 0 && (
+                    <g transform={`translate(${currentLambda.mu + 5}, 50)`}>
+                       <line x1="0" y1="0" x2="10" y2="0" stroke="#f43f5e" strokeWidth="2" />
+                       <polygon points="10,-3 15,0 10,3" fill="#f43f5e" />
+                       <text x="5" y="-5" fontSize="5" fill="#f43f5e" fontWeight="bold" textAnchor="middle">+∇</text>
+                    </g>
+                  )}
+                </svg>
+              </div>
+              <div className="w-full flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                <span>0</span><span>z</span><span>100</span>
+              </div>
+           </div>
+
+           {/* Live Table */}
+           <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-200 flex-grow flex flex-col">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm font-mono">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200 text-slate-500">
+                      <th className="pb-2">Step</th>
+                      <th className="pb-2 text-blue-600">μ</th>
+                      <th className="pb-2 text-blue-600">σ</th>
+                      <th className="pb-2 text-amber-600">ELBO Score</th>
+                      <th className="pb-2 text-rose-500">∇μ</th>
+                      <th className="pb-2 text-rose-500">∇σ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lambdaHistory.map((lam, i) => (
+                      <tr key={i} className={`border-b border-slate-100 transition-colors ${i === t ? 'bg-blue-50/50' : ''}`}>
+                        <td className="py-2 font-bold text-slate-700">λ_{i}</td>
+                        <td className="py-2">{lam.mu.toFixed(1)}</td>
+                        <td className="py-2">{lam.sigma.toFixed(1)}</td>
+                        <td className="py-2 font-bold text-amber-600">{lam.elbo.toFixed(1)}</td>
+                        <td className="py-2 text-slate-400">{i < t ? lam.gradMu.toFixed(1) : '-'}</td>
+                        <td className="py-2 text-slate-400">{i < t ? lam.gradSigma.toFixed(1) : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="mt-auto pt-4 flex gap-4">
+                <button 
+                  onClick={executeNextStep} disabled={isFinished}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Activity className="w-5 h-5"/> {isFinished ? 'Optimization Reached' : `Calculate Gradient & Update λ_${t+1}`}
+                </button>
+                <button 
+                  onClick={reset} disabled={t === 0}
+                  className="p-3 bg-slate-100 text-slate-600 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                  title="Reset"
+                >
+                  <RotateCcw className="w-5 h-5"/>
+                </button>
+              </div>
+           </div>
+
         </div>
+      </div>
+    </div>
+  );
+};
+
+const TheMissingLinkSlide = () => {
+  const [activeTab, setActiveTab] = useState('inference'); // 'inference' or 'training'
+
+  return (
+    <div className="flex flex-col h-full p-6 md:p-8 overflow-y-auto bg-slate-900 text-slate-200">
+      <div className="flex flex-col items-center shrink-0 mb-8">
+        <h2 className="text-3xl font-bold text-emerald-400 mb-2 text-center">The Missing Link: Why refine λ?</h2>
+        <p className="text-slate-400 text-center max-w-4xl text-sm md:text-base">
+          You correctly deduced: <em>"So basically we remove the encoder and just keep the refined latent space?"</em> YES! Here is exactly how that final <span className="font-mono text-emerald-300 bg-emerald-900/50 px-1 rounded">λ_T</span> improves both Inference and the Generative Model.
+        </p>
+      </div>
+
+      <div className="flex flex-col max-w-5xl mx-auto w-full flex-grow pb-8 gap-6">
+        
+        <div className="flex bg-slate-800 p-1 rounded-xl shadow-inner border border-slate-700 w-full max-w-md mx-auto">
+          <button 
+            onClick={() => setActiveTab('inference')}
+            className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${activeTab === 'inference' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            <Database className="w-4 h-4"/> 1. Downstream Inference
+          </button>
+          <button 
+            onClick={() => setActiveTab('training')}
+            className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${activeTab === 'training' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            <Box className="w-4 h-4"/> 2. Training the Decoder
+          </button>
+        </div>
+
+        <div className="flex-grow bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-8 flex flex-col lg:flex-row gap-8 items-center relative overflow-hidden">
+          <AnimatePresence mode="wait">
+            
+            {activeTab === 'inference' && (
+              <motion.div key="inf" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex w-full gap-8 flex-col lg:flex-row items-center">
+                <div className="flex-1 flex flex-col gap-4 w-full">
+                  <h3 className="text-2xl font-bold text-emerald-400 mb-2 border-b border-slate-600 pb-2">The "Final Posterior"</h3>
+                  <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                    In your screenshot, step 3 says: <em>"Final Posterior: Use the refined parameters <span className="font-mono">λ_T</span> to define the approximate posterior for downstream tasks."</em>
+                  </p>
+                  <div className="bg-emerald-900/30 p-4 rounded-xl border-l-4 border-emerald-500 shadow-inner mb-4">
+                    <strong className="text-emerald-300 block mb-1">The Encoder is just a fast starting point.</strong>
+                    <p className="text-sm text-emerald-100/80">
+                      Once we finish the T steps of gradient ascent, we have a highly accurate, custom-tailored representation of the image. If you are doing clustering, anomaly detection, or passing the latents to a classifier, you completely discard the Encoder's initial guess (λ₀) and use λ_T instead!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex-[0.8] w-full flex flex-col items-center bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-inner">
+                   <div className="relative w-full max-w-[200px] aspect-square flex items-center justify-center mb-4">
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:15px_15px]"></div>
+                      
+                      <div className="absolute w-12 h-12 bg-amber-500/20 border border-amber-500/50 rounded-full flex flex-col items-center justify-center top-8 left-8">
+                        <span className="text-[10px] text-amber-400 font-bold">λ₀</span>
+                        <span className="text-[8px] text-amber-500/80">(Sloppy)</span>
+                      </div>
+                      
+                      <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100">
+                         <defs>
+                           <marker id="arrow-em" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+                             <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399" />
+                           </marker>
+                         </defs>
+                         <path d="M 30 30 Q 50 60 70 70" fill="none" stroke="#34d399" strokeWidth="2" strokeDasharray="4" markerEnd="url(#arrow-em)" className="animate-pulse" />
+                      </svg>
+
+                      <div className="absolute w-8 h-8 bg-emerald-500/40 border-2 border-emerald-400 rounded-full flex flex-col items-center justify-center bottom-6 right-6 shadow-[0_0_15px_rgba(52,211,153,0.5)]">
+                        <span className="text-[10px] text-white font-bold">λ_T</span>
+                      </div>
+                   </div>
+                   <div className="bg-emerald-500 text-slate-900 font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-widest shadow-md">
+                     Keep λ_T. Ignore λ₀.
+                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'training' && (
+              <motion.div key="trn" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex w-full gap-8 flex-col lg:flex-row items-center">
+                <div className="flex-1 flex flex-col gap-4 w-full">
+                  <h3 className="text-2xl font-bold text-blue-400 mb-2 border-b border-slate-600 pb-2">Training the Generative Model (θ)</h3>
+                  <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                    Why does refining λ improve the actual VAE generator? Remember that the Decoder learns by trying to reconstruct the image from the latent variable z.
+                  </p>
+                  <div className="bg-blue-900/30 p-4 rounded-xl border-l-4 border-blue-500 shadow-inner mb-4">
+                    <strong className="text-blue-300 block mb-1">Garbage In, Garbage Out</strong>
+                    <p className="text-sm text-blue-100/80 mb-3">
+                      In a standard VAE, the lazy Encoder gives the Decoder sloppy, inaccurate z samples. The Decoder is forced to learn how to draw blurry, generic images because the inputs it receives are messy.
+                    </p>
+                    <p className="text-sm text-blue-100/80 font-bold">
+                      By explicitly running the Inner Loop to find $\lambda_T$ <em>before</em> we update the Decoder weights, the Decoder receives perfectly crisp, highly accurate latent codes to learn from! The resulting Generative Model becomes drastically sharper and more capable.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex-[0.8] w-full flex flex-col items-center bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-inner justify-center relative">
+                   <div className="flex items-center gap-2 mb-8">
+                     <div className="w-12 h-12 bg-slate-200 text-slate-800 rounded-lg flex items-center justify-center font-bold text-sm shadow">Img x</div>
+                     <ArrowRight className="text-slate-500 w-5 h-5"/>
+                     <div className="bg-emerald-900/50 border border-emerald-500 px-3 py-2 rounded flex flex-col items-center">
+                       <span className="text-[10px] text-emerald-400 font-bold mb-1">Inner Loop</span>
+                       <span className="text-white font-mono text-sm">λ_T</span>
+                     </div>
+                     <ArrowRight className="text-emerald-500 w-5 h-5"/>
+                     <div className="w-12 h-12 bg-blue-600 border-2 border-blue-400 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-[0_0_15px_rgba(37,99,235,0.6)] animate-pulse">Decoder</div>
+                   </div>
+
+                   <div className="absolute bottom-4 bg-blue-100 border-2 border-blue-500 text-blue-900 px-4 py-2 rounded text-xs font-bold shadow-lg flex items-center gap-2">
+                     <Zap className="w-4 h-4 text-blue-600"/> Update Decoder weights (θ)
+                   </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
       </div>
     </div>
   );
@@ -967,13 +1187,14 @@ const FlowchartSlide = () => {
       <div className="flex flex-col items-center shrink-0 mb-8">
         <h2 className="text-3xl font-bold text-white mb-2 text-center">The Architecture Pipeline</h2>
         <p className="text-slate-400 text-center max-w-4xl text-sm md:text-base">
-          Visualizes how the Amortized Network and the Iterative Refinement process interact.
+          This matches the exact flowchart from your screenshot. It visualizes how the Amortized Network and the Iterative Refinement process interact.
         </p>
       </div>
 
       <div className="flex flex-col items-center max-w-4xl mx-auto w-full flex-grow pb-8">
         <div className="relative w-full max-w-md bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center font-sans">
           
+          {/* Step 1: Input */}
           <div className="bg-slate-400 text-slate-900 font-bold px-8 py-3 rounded-[50%] shadow-md z-10 w-32 text-center border-2 border-slate-500 text-sm">
             Input x_i
           </div>
@@ -989,6 +1210,7 @@ const FlowchartSlide = () => {
             </svg>
           </div>
 
+          {/* Step 2: Encoder */}
           <div className="bg-blue-300 text-blue-900 font-bold px-6 py-4 rounded-xl shadow-md z-10 border-2 border-blue-500 text-center text-sm w-48">
             Amortized<br/>Inference Network<br/>
             <span className="font-mono text-[10px] font-normal">(Encoder q_φ(z|x))</span>
@@ -1001,6 +1223,7 @@ const FlowchartSlide = () => {
             <span className="absolute top-1/2 -translate-y-1/2 left-[55%] text-[10px] font-bold text-slate-600 bg-white px-1">Provides</span>
           </div>
 
+          {/* Step 3: Initial Params */}
           <div className="bg-orange-300 text-orange-900 font-bold px-6 py-4 rounded-xl shadow-md z-10 border-2 border-orange-500 text-center text-sm w-48 rounded-t-sm rounded-b-sm border-b-[8px]">
             Initial Variational<br/>Parameters λ₀
           </div>
@@ -1008,6 +1231,7 @@ const FlowchartSlide = () => {
           <div className="relative w-full h-16 flex justify-center">
             <svg className="absolute inset-0 w-full h-full z-0 overflow-visible">
                <path d="M 50% 0 L 50% 100" fill="none" stroke="#0f172a" strokeWidth="2" markerEnd="url(#arrow-black)" />
+               {/* Dashed skip connection from Input to Refinement */}
                <path d="M 60% -200 Q 90% -50 65% 100" fill="none" stroke="#0f172a" strokeWidth="1.5" strokeDasharray="4" markerEnd="url(#arrow-black)" />
             </svg>
             <span className="absolute top-[20%] left-[55%] text-[10px] font-bold text-slate-600 bg-white px-1">Initializes</span>
@@ -1016,6 +1240,7 @@ const FlowchartSlide = () => {
             </div>
           </div>
 
+          {/* Step 4: Iterative Refinement */}
           <div className="bg-emerald-300 text-emerald-900 font-bold px-4 py-4 shadow-md z-10 border-2 border-emerald-500 text-center text-sm w-64 relative" style={{ clipPath: 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)' }}>
             Iterative Refinement<br/>
             <span className="text-[10px] font-normal">(e.g., K steps of Gradient Ascent<br/>on ELBO(x_i, λ))</span>
@@ -1028,6 +1253,7 @@ const FlowchartSlide = () => {
             <span className="absolute top-1/2 -translate-y-1/2 left-[55%] text-[10px] font-bold text-slate-600 bg-white px-1">Produces</span>
           </div>
 
+          {/* Step 5: Refined Params */}
           <div className="bg-orange-200 text-orange-900 font-bold px-6 py-4 rounded-xl shadow-md z-10 border-2 border-orange-400 text-center text-sm w-48 rounded-t-sm rounded-b-sm border-b-[8px]">
             Refined Variational<br/>Parameters λ_K
           </div>
@@ -1039,112 +1265,149 @@ const FlowchartSlide = () => {
             <span className="absolute top-1/2 -translate-y-1/2 left-[55%] text-[10px] font-bold text-slate-600 bg-white px-1">Defines</span>
           </div>
 
+          {/* Step 6: Final Posterior */}
           <div className="bg-purple-300 text-purple-900 font-bold px-6 py-3 rounded-2xl shadow-md z-10 border-2 border-purple-500 text-center text-sm w-48">
             Approximate Posterior<br/>
             <span className="font-mono text-[10px] font-normal">q(z|x_i; λ_K)</span>
           </div>
+
         </div>
       </div>
     </div>
   );
 };
 
-const SemiAmortizedTradeoffsSlide = () => {
+const GlobalTrainingLoopSlide = () => {
+  const [phase, setPhase] = useState(1); // 1: Inner Loop, 2: Train Decoder, 3: Train Encoder
+
   return (
     <div className="flex flex-col h-full p-6 md:p-10 overflow-y-auto bg-slate-50">
-      <div className="flex flex-col items-center shrink-0 mb-8">
-        <h2 className="text-3xl font-bold text-rose-600 mb-2 text-center">The Catch: Training Complexity</h2>
+      <div className="flex flex-col items-center shrink-0 mb-6">
+        <h2 className="text-3xl font-bold text-indigo-700 mb-2 text-center">The Global Training Loop</h2>
         <p className="text-slate-600 text-center max-w-4xl text-sm md:text-base">
-          If Semi-Amortized Inference is so great, why doesn't everyone use it? The screenshot mentions <strong>"Training Complexity"</strong> and differentiating through T steps of optimization. Here is why that is a nightmare.
+          Yes, we still use the ELBO! Yes, we still use KL Divergence! But the training happens in 3 distinct phases. Click through the phases to see what gets updated and how the Loss is calculated.
         </p>
+      </div>
+
+      <div className="flex justify-center mb-6 w-full max-w-4xl mx-auto relative z-20">
+        <div className="flex bg-slate-200 p-1 rounded-xl w-full shadow-inner border border-slate-300">
+           <button onClick={() => setPhase(1)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${phase === 1 ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+             <RotateCcw className="w-4 h-4"/> 1. Inner Loop (Find λ_T)
+           </button>
+           <button onClick={() => setPhase(2)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${phase === 2 ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+             <Cpu className="w-4 h-4"/> 2. Update Decoder (θ)
+           </button>
+           <button onClick={() => setPhase(3)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${phase === 3 ? 'bg-purple-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+             <BrainCircuit className="w-4 h-4"/> 3. Update Encoder (φ)
+           </button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8 w-full max-w-6xl mx-auto items-stretch flex-grow pb-8">
         
-        <div className="flex-[1.5] bg-white p-8 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center justify-center">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-6">The "Unrolled" Meta-Gradient</h3>
+        {/* Visual Pipeline */}
+        <div className="flex-[1.2] bg-slate-900 p-8 rounded-2xl shadow-xl border border-slate-700 flex flex-col items-center justify-center relative min-h-[400px]">
           
-          <div className="w-full flex items-center justify-between relative bg-slate-50 p-6 rounded-xl border border-slate-200">
-             <div className="flex flex-col items-center z-10">
-               <div className="bg-blue-100 border-2 border-blue-400 px-3 py-2 rounded text-blue-800 font-bold text-xs mb-2">Encoder φ</div>
-               <div className="w-10 h-10 bg-amber-200 border-2 border-amber-400 rounded-full flex items-center justify-center font-bold text-amber-800 shadow">λ₀</div>
-             </div>
+          <div className="absolute top-4 left-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Network Status</div>
+          
+          <div className="flex justify-between items-center w-full max-w-md relative z-10">
+            
+            {/* Encoder Box */}
+            <div className={`w-32 py-4 rounded-xl flex flex-col items-center justify-center border-2 transition-all ${phase === 3 ? 'bg-purple-900/80 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.4)]' : 'bg-slate-800 border-slate-600 opacity-50'}`}>
+              <BrainCircuit className={`w-6 h-6 mb-2 ${phase === 3 ? 'text-purple-400' : 'text-slate-500'}`} />
+              <span className="font-bold text-sm text-slate-300">Encoder φ</span>
+              <div className="mt-2 text-[10px] font-bold px-2 py-1 rounded bg-slate-950 flex items-center gap-1">
+                {phase === 3 ? <Unlock className="w-3 h-3 text-emerald-400"/> : <Lock className="w-3 h-3 text-rose-500"/>}
+                <span className={phase === 3 ? 'text-emerald-400' : 'text-rose-500'}>{phase === 3 ? 'TRAINING' : 'FROZEN'}</span>
+              </div>
+            </div>
 
-             <ArrowRight className="w-5 h-5 text-slate-400 z-10" />
+            {/* Latent Space (Lambda) */}
+            <div className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 transition-all z-20 ${phase === 1 ? 'bg-amber-900/80 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]' : 'bg-emerald-900/80 border-emerald-500'}`}>
+               <span className="font-mono text-2xl font-bold text-white">{phase === 1 ? 'λ_t' : 'λ_T'}</span>
+               {phase === 1 && <span className="text-[10px] text-amber-400 mt-1 animate-pulse">Updating...</span>}
+               {phase !== 1 && <span className="text-[10px] text-emerald-400 mt-1">Perfected!</span>}
+            </div>
 
-             <div className="flex flex-col items-center z-10">
-               <div className="bg-emerald-100 border border-emerald-400 px-2 py-1 rounded text-emerald-800 font-mono text-[10px] mb-2">+ η∇L</div>
-               <div className="w-10 h-10 bg-amber-200 border-2 border-amber-400 rounded-full flex items-center justify-center font-bold text-amber-800 shadow">λ₁</div>
-             </div>
-
-             <ArrowRight className="w-5 h-5 text-slate-400 z-10" />
-
-             <div className="flex flex-col items-center z-10 opacity-50">
-               <div className="bg-emerald-100 border border-emerald-400 px-2 py-1 rounded text-emerald-800 font-mono text-[10px] mb-2">+ η∇L</div>
-               <div className="font-bold text-slate-400">...</div>
-             </div>
-
-             <ArrowRight className="w-5 h-5 text-slate-400 z-10" />
-
-             <div className="flex flex-col items-center z-10 relative">
-               <div className="bg-emerald-100 border border-emerald-400 px-2 py-1 rounded text-emerald-800 font-mono text-[10px] mb-2">+ η∇L</div>
-               <div className="w-12 h-12 bg-orange-400 border-2 border-orange-600 rounded-full flex items-center justify-center font-bold text-white shadow-lg">λ_K</div>
-               
-               <div className="absolute -top-16 bg-purple-100 border-2 border-purple-500 px-3 py-2 rounded text-purple-900 font-bold text-xs shadow-md whitespace-nowrap">
-                 Final ELBO Loss
-               </div>
-               <svg className="absolute -top-8 w-4 h-8" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                 <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#a855f7" strokeWidth="2" />
-               </svg>
-             </div>
-
-             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                <defs>
-                 <marker id="arrow-red" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#e11d48" />
-                 </marker>
-               </defs>
-               <path d="M 90% 80% Q 50% 120% 10% 80%" fill="none" stroke="#e11d48" strokeWidth="3" strokeDasharray="6" markerEnd="url(#arrow-red)" />
-             </svg>
-             <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-rose-600 bg-rose-100 px-2 py-1 rounded border border-rose-300">
-               Backpropagating through K optimization steps!
-             </span>
+            {/* Decoder Box */}
+            <div className={`w-32 py-4 rounded-xl flex flex-col items-center justify-center border-2 transition-all ${phase === 2 ? 'bg-blue-900/80 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.4)]' : 'bg-slate-800 border-slate-600 opacity-50'}`}>
+              <Cpu className={`w-6 h-6 mb-2 ${phase === 2 ? 'text-blue-400' : 'text-slate-500'}`} />
+              <span className="font-bold text-sm text-slate-300">Decoder θ</span>
+              <div className="mt-2 text-[10px] font-bold px-2 py-1 rounded bg-slate-950 flex items-center gap-1">
+                {phase === 2 ? <Unlock className="w-3 h-3 text-emerald-400"/> : <Lock className="w-3 h-3 text-rose-500"/>}
+                <span className={phase === 2 ? 'text-emerald-400' : 'text-rose-500'}>{phase === 2 ? 'TRAINING' : 'FROZEN'}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-8 bg-rose-50 border-l-4 border-rose-500 p-4 text-sm text-rose-900 shadow-sm w-full">
-            <h4 className="font-bold flex items-center gap-2 mb-2"><AlertTriangle className="w-5 h-5"/> Meta-Learning Problem</h4>
-            <p>
-              To train the Encoder (φ) to be a "good initialization predictor", we have to calculate how a change in φ affects the final loss. Because the final loss depends on λ_K, and λ_K was created by a loop of K gradient descent steps... PyTorch has to store the entire computational graph of an optimization algorithm <em>inside</em> another optimization algorithm. It consumes massive memory.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col gap-6 justify-center">
-          <div className="bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700 text-white h-full flex flex-col justify-center">
-             <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2 border-b border-slate-600 pb-2">
-               <Activity className="w-6 h-6" /> Increased Inference Time
-             </h3>
-             <p className="text-slate-300 leading-relaxed mb-4 text-sm">
-               Even after training is finished, predicting the latent variables for a new image is no longer instant.
-             </p>
-             <div className="space-y-4">
-                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-600">
-                   <strong className="text-slate-200 block mb-1">Standard VAE:</strong>
-                   <span className="text-emerald-400 text-sm font-mono bg-emerald-900/30 px-1 rounded">Pass image through Encoder once. Done.</span>
-                </div>
-                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-600">
-                   <strong className="text-slate-200 block mb-1">Semi-Amortized:</strong>
-                   <span className="text-rose-400 text-sm font-mono bg-rose-900/30 px-1 rounded leading-relaxed block">
-                     Pass through Encoder.<br/>
-                     Run Forward/Backward pass on Decoder to get gradient.<br/>
-                     Update parameters.<br/>
-                     Repeat K times. Done.
-                   </span>
-                </div>
-             </div>
+          {/* Loss Box */}
+          <div className="mt-12 bg-slate-800 p-4 rounded-xl border border-slate-600 w-full max-w-lg text-center relative">
+             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 px-3 border border-slate-600 rounded-full text-[10px] text-slate-400 font-bold uppercase tracking-widest">Calculated Loss</div>
+             <AnimatePresence mode="wait">
+               {phase === 1 && (
+                 <motion.div key="p1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-mono text-sm md:text-base text-amber-300 flex flex-col items-center py-2">
+                   <span>Instance ELBO = E_q(z|λ_t) [log p(x|z)] - D_KL(λ_t || p(z))</span>
+                 </motion.div>
+               )}
+               {phase === 2 && (
+                 <motion.div key="p2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-mono text-sm md:text-base text-blue-300 flex flex-col items-center py-2">
+                   <span>Final ELBO = E_q(z|<strong className="text-emerald-400 text-lg">λ_T</strong>) [log p_θ(x|z)] - D_KL(<strong className="text-emerald-400 text-lg">λ_T</strong> || p(z))</span>
+                 </motion.div>
+               )}
+               {phase === 3 && (
+                 <motion.div key="p3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-mono text-sm md:text-base text-purple-300 flex flex-col items-center py-2">
+                   <span>Encoder Loss = MeanSquaredError( <strong className="text-slate-400">λ_0</strong>, <strong className="text-emerald-400">λ_T</strong> )</span>
+                 </motion.div>
+               )}
+             </AnimatePresence>
           </div>
         </div>
 
+        {/* Text Explanation */}
+        <div className="flex-1 flex flex-col justify-center">
+           <AnimatePresence mode="wait">
+             
+             {phase === 1 && (
+               <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-6 rounded-2xl shadow-lg border-t-8 border-amber-500">
+                 <h3 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-2">The Setup (Inner Loop)</h3>
+                 <p className="text-slate-600 leading-relaxed mb-4 text-sm">
+                   First, we freeze BOTH neural networks. We run Gradient Ascent purely on the parameters <span className="font-mono bg-slate-100 px-1 rounded">λ</span> for <span className="font-mono">T</span> steps.
+                 </p>
+                 <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 shadow-sm text-sm text-amber-900">
+                   <strong>Yes, we use the standard ELBO here!</strong> We use the ELBO formula to measure how good our current <span className="font-mono">λ_t</span> is, and we follow the gradient to make it better. The output is the perfected representation: <span className="font-mono font-bold text-emerald-600">λ_T</span>.
+                 </div>
+               </motion.div>
+             )}
+
+             {phase === 2 && (
+               <motion.div key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-6 rounded-2xl shadow-lg border-t-8 border-blue-500">
+                 <h3 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-2">Training the Decoder</h3>
+                 <p className="text-slate-600 leading-relaxed mb-4 text-sm">
+                   Now we lock λ and unlock the Decoder (θ). We calculate the exact same ELBO loss, but we plug in our new, perfect <span className="font-mono bg-slate-100 px-1 rounded text-emerald-600 font-bold">λ_T</span> instead of the original guess.
+                 </p>
+                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 shadow-sm text-sm text-blue-900">
+                   <strong>The Generative Benefit:</strong> Because we are calculating the ELBO using the highly accurate <span className="font-mono font-bold">λ_T</span>, the Decoder receives pristine, high-fidelity latent codes z to learn from! The gradients update the Decoder weights to generate vastly sharper images.
+                 </div>
+               </motion.div>
+             )}
+
+             {phase === 3 && (
+               <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-6 rounded-2xl shadow-lg border-t-8 border-purple-500">
+                 <h3 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-2">Training the Encoder</h3>
+                 <p className="text-slate-600 leading-relaxed mb-4 text-sm">
+                   Finally, we must update the Encoder (φ) so that its initial guess (λ₀) is better next time. 
+                 </p>
+                 <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 shadow-sm text-sm text-purple-900 mb-4">
+                   <strong>Why not throw it away?</strong> If we don't train the Encoder, it will give us garbage for brand new images in the future! It needs to learn how to be a fast, accurate "Initialization Predicter."
+                 </div>
+                 <p className="text-slate-600 leading-relaxed text-sm">
+                   <strong>The Optimization:</strong> There are two ways. The hard way is backpropagating through the entire Inner Loop. The easy way is treating <span className="font-mono text-emerald-600 font-bold">λ_T</span> as a "Ground Truth Label" and training the Encoder to output it directly using Mean Squared Error!
+                 </p>
+               </motion.div>
+             )}
+
+           </AnimatePresence>
+        </div>
       </div>
     </div>
   );
@@ -1226,10 +1489,11 @@ const Slideshow = () => {
     // Semi-Amortized Slides
     AmortizationGapSlide,
     TheParameterSwitchSlide,
-    TheInnerLoopSlide, // <--- INJECTED NEW SLIDE
-    RefinementSandboxSlide,
+    TheInnerLoopSlide,
+    RefinementMathDeepDiveSlide,
+    TheMissingLinkSlide,
     FlowchartSlide,
-    SemiAmortizedTradeoffsSlide,
+    GlobalTrainingLoopSlide, // <--- INJECTED NEW REPLACEMENT SLIDE HERE
     SynergiesSlide
   ];
 
